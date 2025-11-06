@@ -1,0 +1,499 @@
+# Sources export for GPT
+# generated_at: 2025-11-06T00:14:09
+# roots: ., ./infra, ./docs, ./backend, ./frontend
+# patterns: *.sql, *.yaml, *.yml, *.py, Makefile, .env, , 
+# excluded_dirs: .cache, .git, .hg, .idea, .mypy_cache, .py, .svn, .terraform, .venv, .vscode, __pycache__, bazel-bin, bazel-out, bazel-testlogs, build, dist, node_modules, out, target, vendor, venv
+
+
+===== FILE: .env =====
+# size: 406 bytes
+```
+# Porta local do Postgres
+DB_PORT=5433
+
+# Superuser interno do container (não é o user da sua app)
+DB_SUPERUSER=postgres
+DB_SUPERPASS=postgres
+
+# Credenciais da aplicação
+APP_DB_NAME=planejadin
+APP_DB_USER=planejadin_user
+APP_DB_PASS=planejadin_pass
+
+# Connection string típica (ex.: backend)
+DATABASE_URL=postgresql://${APP_DB_USER}:${APP_DB_PASS}@localhost:${DB_PORT}/${APP_DB_NAME}?sslmode=disable
+
+```
+
+===== FILE: backend/app/__init__.py =====
+# size: 0 bytes
+```python
+
+```
+
+===== FILE: backend/app/db.py =====
+# size: 633 bytes
+```python
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, DeclarativeBase
+
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
+
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://planejadin_user:planejadin_pass@localhost:5433/planejadin?sslmode=disable"
+)
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+class Base(DeclarativeBase):
+    pass
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+```
+
+===== FILE: backend/app/deps.py =====
+# size: 0 bytes
+```python
+
+```
+
+===== FILE: backend/app/main.py =====
+# size: 295 bytes
+```python
+from fastapi import FastAPI
+from .routers import health, categories, transactions, reports
+
+app = FastAPI(title="PlanejaDin API", version="0.1.0")
+
+app.include_router(health.router)
+app.include_router(categories.router)
+app.include_router(transactions.router)
+app.include_router(reports.router)
+
+```
+
+===== FILE: backend/app/models.py =====
+# size: 3057 bytes
+```python
+import uuid
+from datetime import datetime, date
+from sqlalchemy import (
+    Column, String, DateTime, Date, Numeric,
+    Enum, ForeignKey, CheckConstraint
+)
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship, Mapped, mapped_column
+from .db import Base
+import enum
+
+class TransactionType(str, enum.Enum):
+    INCOME = "INCOME"
+    EXPENSE = "EXPENSE"
+
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    email: Mapped[str] = mapped_column(String, nullable=False)      # único por índice funcional LOWER(email)
+    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    categories: Mapped[list["Category"]] = relationship(back_populates="user", cascade="all, delete")
+    transactions: Mapped[list["Transaction"]] = relationship(back_populates="user", cascade="all, delete")
+
+class Category(Base):
+    __tablename__ = "categories"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    icon: Mapped[str | None] = mapped_column(String, nullable=True)
+    color: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped["User"] = relationship(back_populates="categories")
+    transactions: Mapped[list["Transaction"]] = relationship(back_populates="category")
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    category_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("categories.id", ondelete="SET NULL"))
+    type: Mapped[TransactionType] = mapped_column(Enum(TransactionType, name="transaction_type"), nullable=False)
+    amount: Mapped[float] = mapped_column(Numeric(14,2), nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    description: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_transactions_amount_gt_zero"),
+    )
+
+    user: Mapped["User"] = relationship(back_populates="transactions")
+    category: Mapped["Category"] = relationship(back_populates="transactions")
+
+```
+
+===== FILE: backend/app/routers/__init__.py =====
+# size: 0 bytes
+```python
+
+```
+
+===== FILE: backend/app/routers/categories.py =====
+# size: 1284 bytes
+```python
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from uuid import UUID
+from datetime import datetime, timezone
+from ..db import get_db
+from .. import models, schemas
+
+router = APIRouter(prefix="/categories", tags=["categories"])
+
+@router.get("", response_model=list[schemas.CategoryOut])
+def list_categories(user_id: UUID = Query(...), db: Session = Depends(get_db)):
+    return db.query(models.Category).filter(models.Category.user_id == user_id).order_by(models.Category.name).all()
+
+@router.post("", response_model=schemas.CategoryOut, status_code=201)
+def create_category(
+    user_id: UUID = Query(...),
+    payload: schemas.CategoryCreate = ...,
+    db: Session = Depends(get_db)
+):
+    # regra de unicidade por usuário (name)
+    exists = db.query(models.Category).filter(
+        models.Category.user_id == user_id,
+        models.Category.name.ilike(payload.name)
+    ).first()
+    if exists:
+        raise HTTPException(status_code=409, detail="Category already exists")
+
+    now = datetime.now(timezone.utc)
+    cat = models.Category(
+        user_id=user_id, name=payload.name, icon=payload.icon, color=payload.color,
+        created_at=now, updated_at=now
+    )
+    db.add(cat); db.commit(); db.refresh(cat)
+    return cat
+
+```
+
+===== FILE: backend/app/routers/health.py =====
+# size: 134 bytes
+```python
+from fastapi import APIRouter
+router = APIRouter(tags=["health"])
+
+@router.get("/healthz")
+def healthz():
+    return {"status": "ok"}
+
+```
+
+===== FILE: backend/app/routers/reports.py =====
+# size: 1190 bytes
+```python
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+from sqlalchemy import func, case, extract
+from uuid import UUID
+from ..db import get_db
+from .. import models, schemas
+
+router = APIRouter(prefix="/reports", tags=["reports"])
+
+@router.get("/monthly", response_model=schemas.MonthlyReportOut)
+def monthly(
+    user_id: UUID = Query(...),
+    year: int = Query(..., ge=1900, le=3000),
+    month: int = Query(..., ge=1, le=12),
+    db: Session = Depends(get_db)
+):
+    # soma condicional por mês
+    total_income, total_expense = db.query(
+        func.coalesce(func.sum(case((models.Transaction.type == models.TransactionType.INCOME, models.Transaction.amount), else_=0)), 0),
+        func.coalesce(func.sum(case((models.Transaction.type == models.TransactionType.EXPENSE, models.Transaction.amount), else_=0)), 0),
+    ).filter(
+        models.Transaction.user_id == user_id,
+        extract('year', models.Transaction.date) == year,
+        extract('month', models.Transaction.date) == month
+    ).one()
+
+    return schemas.MonthlyReportOut(
+        year=year, month=month,
+        total_income=float(total_income), total_expense=float(total_expense)
+    )
+
+```
+
+===== FILE: backend/app/routers/transactions.py =====
+# size: 1973 bytes
+```python
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from uuid import UUID
+from datetime import datetime, timezone, date as dt_date
+from ..db import get_db
+from .. import models, schemas
+
+router = APIRouter(prefix="/transactions", tags=["transactions"])
+
+@router.get("", response_model=list[schemas.TransactionOut])
+def list_transactions(
+    user_id: UUID = Query(...),
+    date_from: dt_date = Query(...),
+    date_to: dt_date = Query(...),
+    category_id: UUID | None = Query(None),
+    type: models.TransactionType | None = Query(None),
+    db: Session = Depends(get_db)
+):
+    q = db.query(models.Transaction).filter(
+        models.Transaction.user_id == user_id,
+        models.Transaction.date.between(date_from, date_to)
+    )
+    if category_id: q = q.filter(models.Transaction.category_id == category_id)
+    if type: q = q.filter(models.Transaction.type == type)
+    return q.order_by(models.Transaction.date.desc(), models.Transaction.created_at.desc()).all()
+
+@router.post("", response_model=schemas.TransactionOut, status_code=201)
+def create_transaction(
+    user_id: UUID = Query(...),
+    payload: schemas.TransactionCreate = ...,
+    db: Session = Depends(get_db)
+):
+    # se categoria informada, precisa pertencer ao mesmo user
+    if payload.category_id:
+        cat = db.query(models.Category).filter(
+            models.Category.id == payload.category_id,
+            models.Category.user_id == user_id
+        ).first()
+        if not cat:
+            raise HTTPException(status_code=400, detail="category_id does not belong to user")
+
+    now = datetime.now(timezone.utc)
+    tx = models.Transaction(
+        user_id=user_id,
+        category_id=payload.category_id,
+        type=payload.type,
+        amount=payload.amount,
+        date=payload.date,
+        description=payload.description,
+        created_at=now,
+        updated_at=now
+    )
+    db.add(tx); db.commit(); db.refresh(tx)
+    return tx
+
+```
+
+===== FILE: backend/app/routers/users.py =====
+# size: 0 bytes
+```python
+
+```
+
+===== FILE: backend/app/schemas.py =====
+# size: 1313 bytes
+```python
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional
+from datetime import date, datetime
+from uuid import UUID
+from .models import TransactionType
+
+# ---- Users ----
+class UserOut(BaseModel):
+    id: UUID
+    name: str
+    email: EmailStr
+    created_at: datetime
+    updated_at: datetime
+    class Config: from_attributes = True
+
+# ---- Categories ----
+class CategoryCreate(BaseModel):
+    name: str = Field(min_length=1)
+    icon: Optional[str] = None
+    color: Optional[str] = None
+
+class CategoryOut(BaseModel):
+    id: UUID
+    name: str
+    icon: Optional[str]
+    color: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    class Config: from_attributes = True
+
+# ---- Transactions ----
+class TransactionCreate(BaseModel):
+    category_id: Optional[UUID] = None
+    type: TransactionType
+    amount: float = Field(gt=0)
+    date: date
+    description: Optional[str] = None
+
+class TransactionOut(BaseModel):
+    id: UUID
+    category_id: Optional[UUID]
+    type: TransactionType
+    amount: float
+    date: date
+    description: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    class Config: from_attributes = True
+
+# ---- Reports ----
+class MonthlyReportOut(BaseModel):
+    year: int
+    month: int
+    total_income: float
+    total_expense: float
+
+```
+
+===== FILE: docker-compose.yml =====
+# size: 513 bytes
+```yaml
+services:
+  db:
+    image: postgres:16
+    container_name: planejadin-db
+    environment:
+      POSTGRES_USER: planejadin_user
+      POSTGRES_PASSWORD: planejadin_pass
+      POSTGRES_DB: planejadin
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./infra/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U planejadin_user -d planejadin"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  dbdata:
+
+```
+
+===== FILE: infra/db/init/01_schema.sql =====
+# size: 2568 bytes
+```sql
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'transaction_type') THEN
+    CREATE TYPE transaction_type AS ENUM ('INCOME', 'EXPENSE');
+  END IF;
+END$$;
+
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower ON users (LOWER(email));
+
+CREATE TABLE IF NOT EXISTS categories (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  icon TEXT,
+  color TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_categories_user_name UNIQUE (user_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id);
+
+CREATE TABLE IF NOT EXISTS transactions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  category_id UUID NULL REFERENCES categories(id) ON DELETE SET NULL,
+  type transaction_type NOT NULL,
+  amount NUMERIC(14,2) NOT NULL CHECK (amount > 0),
+  date DATE NOT NULL,
+  description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tx_user_date      ON transactions(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_tx_user_cat_date  ON transactions(user_id, category_id, date);
+CREATE INDEX IF NOT EXISTS idx_tx_user_type_date ON transactions(user_id, type, date);
+
+CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_users_updated_at') THEN
+    CREATE TRIGGER trg_users_updated_at
+      BEFORE UPDATE ON users
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_categories_updated_at') THEN
+    CREATE TRIGGER trg_categories_updated_at
+      BEFORE UPDATE ON categories
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_transactions_updated_at') THEN
+    CREATE TRIGGER trg_transactions_updated_at
+      BEFORE UPDATE ON transactions
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  END IF;
+END$$;
+
+```
+
+===== FILE: Makefile =====
+# size: 244 bytes
+```makefile
+up:
+	docker compose up -d
+
+down:
+	docker compose down
+
+clean:
+	docker compose down -v
+
+logs:
+	docker compose logs -f db
+
+psql:
+	docker exec -it planejadin-db psql -U postgres
+
+# Recriar do zero (atenção: apaga o volume!)
+reset: clean up logs
+
+```
+
+# total_files: 16

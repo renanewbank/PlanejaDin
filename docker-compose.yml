@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:16
+    container_name: planejadin-db
+    environment:
+      POSTGRES_USER: planejadin_user
+      POSTGRES_PASSWORD: planejadin_pass
+      POSTGRES_DB: planejadin
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./infra/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U planejadin_user -d planejadin"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  dbdata:
