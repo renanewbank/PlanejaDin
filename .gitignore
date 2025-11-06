@@ -1,0 +1,16 @@
+# Python / venv
+.venv/
+__pycache__/
+*.pyc
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Node (se usar no frontend)
+node_modules/
+
+# Env (NÃO versionar segredos)
+.env
+EOF
