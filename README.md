@@ -171,33 +171,4 @@ git push origin backend
 
 ---
 
-
-
-
-> Este arquivo é um *overview* técnico-conciso para orientar contribuição, evolução e operação do PlanejaDin. As seções de API e testes serão adicionadas conforme os artefatos forem versionados.
- do time (Grupo 3)
-
-* **Scrum Master / PO (Kamilla Acioly):** Backlog no Jira, DoR/DoD e cadência de sprints
-* **Front-end (Gabriella de Sousa):** Interface web/mobile integrada às APIs e testes
-* **Back-end (Heber Kayke):** Microsserviços e documentação via **Swagger** (APIs usadas no front)
-* **QA (Luiza Menezes):** Casos de teste, evidências e execução do roteiro de testes
-* **SRE (Renan O. Ewbank):** Estruturação do repositório, **branches por dev**, CI/CD, versionamento de imagens/containers e padronização de documentação
-* **IA/ML (José Patrick):** Prompts e integração de **IA Generativa** quando aplicável
-
-## Padrões de repositório (SRE)
-
-* **Branches por desenvolvedor** durante a sprint; **merge** para uma branch estável ao final
-* Pastas previstas: `frontend/`, `backend/`, `infra/` (IaC/containers), `docs/` (Swagger/README)
-* **Swagger** publicado a partir do `backend/` (rota `/swagger` ou `/docs`)
-* Pipelines de **CI/CD** para lint, testes, build e entrega dos artefatos
-
-## Roadmap de documentação
-
-Quando os serviços estiverem estáveis, este README receberá:
-
-* **Especificação de APIs** (métodos, endpoints, payloads e códigos de resposta)
-* **Guia de execução local** (compose/k8s), variáveis de ambiente e dados de exemplo
-* **Como testar** (coleções, rotas, ambientes) e **checklists de QA**
-* **Observabilidade** (logs, métricas e dashboards)
-
 > Este arquivo é um *overview* técnico-conciso para orientar contribuição, evolução e operação do PlanejaDin. As seções de API e testes serão adicionadas conforme os artefatos forem versionados.
