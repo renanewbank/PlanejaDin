@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:teste/features/dicas/viewmodels/dicas_view_model.dart';
+import 'package:teste/features/transaction/viewmodels/transaction_history_view_model.dart';
+import 'package:teste/features/transaction/viewmodels/transaction_view_model.dart';
+import 'package:teste/services/api_service.dart';
 import 'features/auth/viewmodels/login_view_model.dart';
 import 'features/dashboard/viewmodels/dashboard_view_model.dart';
 import 'features/auth/viewmodels/register_view_model.dart';
@@ -17,6 +20,12 @@ void main() {
         ChangeNotifierProvider(create: (_) => DashboardViewModel()),
         ChangeNotifierProvider(create: (_) => RegisterViewModel()),
         ChangeNotifierProvider(create: (_) => DicasViewModel()),
+        ChangeNotifierProvider(
+          create: (_) => TransactionsViewModel(ApiService()),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => TransactionHistoryViewModel(ApiService()),
+        ),
       ],
       child: const MyApp(),
     ),

@@ -40,7 +40,6 @@ class _DicasViewState extends State<DicasView> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // HEADER
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 40, 20, 10),
             child: Row(

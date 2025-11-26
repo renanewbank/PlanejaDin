@@ -4,6 +4,7 @@
 // import 'package:http/http.dart' as http;
 
 // class ApiService {
+//   // Troque pelo URL do seu backend
 //   final String baseUrl = "http://localhost:8000";
 
 //   // LOGIN
@@ -17,7 +18,7 @@
 //     );
 
 //     if (response.statusCode != 200) {
-//       throw Exception("Erro ao fazer login");
+//       throw Exception("Usuário ou senha inválidos");
 //     }
 
 //     return jsonDecode(response.body);
@@ -25,10 +26,7 @@
 
 //   // REGISTRO
 //   Future<Map<String, dynamic>> register(
-//     String nome,
-//     String email,
-//     String senha,
-//   ) async {
+//       String nome, String email, String senha) async {
 //     final url = Uri.parse("$baseUrl/register");
 
 //     final response = await http.post(
@@ -44,33 +42,69 @@
 //     return jsonDecode(response.body);
 //   }
 
-//   // MÉTODOS (GET/POST/PUT/DELETE)
-//   Future<dynamic> get(String endpoint) async {
-//     final response = await http.get(Uri.parse("$baseUrl$endpoint"));
+//   // GET
+//   Future<dynamic> get(String endpoint, {String? token}) async {
+//     final url = Uri.parse("$baseUrl$endpoint");
+
+//     final headers = {"Content-Type": "application/json"};
+//     if (token != null) headers["Authorization"] = "Bearer $token";
+
+//     final response = await http.get(url, headers: headers);
+
+//     if (response.statusCode != 200) {
+//       throw Exception("Erro ao obter dados do endpoint $endpoint");
+//     }
+
 //     return jsonDecode(response.body);
 //   }
 
-//   Future<dynamic> post(String endpoint, Map<String, dynamic> body) async {
-//     final response = await http.post(
-//       Uri.parse("$baseUrl$endpoint"),
-//       headers: {"Content-Type": "application/json"},
-//       body: jsonEncode(body),
-//     );
+//   // POST
+//   Future<dynamic> post(String endpoint, Map<String, dynamic> body,
+//       {String? token}) async {
+//     final url = Uri.parse("$baseUrl$endpoint");
+
+//     final headers = {"Content-Type": "application/json"};
+//     if (token != null) headers["Authorization"] = "Bearer $token";
+
+//     final response = await http.post(url, headers: headers, body: jsonEncode(body));
+
+//     if (response.statusCode != 200) {
+//       throw Exception("Erro ao enviar dados para o endpoint $endpoint");
+//     }
+
 //     return jsonDecode(response.body);
 //   }
 
-//   Future<dynamic> put(String endpoint, Map<String, dynamic> body) async {
-//     final response = await http.put(
-//       Uri.parse("$baseUrl$endpoint"),
-//       headers: {"Content-Type": "application/json"},
-//       body: jsonEncode(body),
-//     );
+//   // PUT
+//   Future<dynamic> put(String endpoint, Map<String, dynamic> body,
+//       {String? token}) async {
+//     final url = Uri.parse("$baseUrl$endpoint");
+
+//     final headers = {"Content-Type": "application/json"};
+//     if (token != null) headers["Authorization"] = "Bearer $token";
+
+//     final response = await http.put(url, headers: headers, body: jsonEncode(body));
+
+//     if (response.statusCode != 200) {
+//       throw Exception("Erro ao atualizar dados no endpoint $endpoint");
+//     }
+
 //     return jsonDecode(response.body);
 //   }
 
-//   Future<dynamic> delete(String endpoint) async {
-//     final response =
-//         await http.delete(Uri.parse("$baseUrl$endpoint"));
+//   // DELETE
+//   Future<dynamic> delete(String endpoint, {String? token}) async {
+//     final url = Uri.parse("$baseUrl$endpoint");
+
+//     final headers = {"Content-Type": "application/json"};
+//     if (token != null) headers["Authorization"] = "Bearer $token";
+
+//     final response = await http.delete(url, headers: headers);
+
+//     if (response.statusCode != 200) {
+//       throw Exception("Erro ao deletar dados no endpoint $endpoint");
+//     }
+
 //     return jsonDecode(response.body);
 //   }
 // }
