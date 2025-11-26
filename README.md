@@ -1,6 +1,4 @@
-Segue um `README.md` prontinho pra colar na raiz do monorepo `PlanejaDin` (onde você tem as pastas `backend/` e `frontend/`):
 
-````markdown
 # PlanejaDin
 
 PlanejaDin é um aplicativo de controle financeiro pessoal, desenvolvido como projeto acadêmico.  
