@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:teste/features/transaction/view/transaction_history_view.dart';
+import 'package:teste/features/transaction/view/transaction_view.dart';
 import '../../../widgets/bottom_nav_bar.dart';
 import '../../../widgets/tips_badge.dart';
 import '../../../core/models/categoria.dart';
@@ -25,7 +27,17 @@ class _DashboardViewState extends State<DashboardView> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      bottomNavigationBar: BottomNavBar(currentIndex: 0, onTap: (_) {}),
+      bottomNavigationBar: BottomNavBar(
+        currentIndex: 0,
+        onTap: (index) {
+          if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TransactionHistoryView()),
+            );
+          }
+        },
+      ),
       body: SafeArea(
         child: vm.loading
             ? const Center(child: CircularProgressIndicator())
@@ -40,7 +52,6 @@ class _DashboardViewState extends State<DashboardView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 30),
-
                         Center(
                           child: Text(
                             "Olá, ${vm.nomeUsuario}",
@@ -50,7 +61,6 @@ class _DashboardViewState extends State<DashboardView> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 20),
                         _buildSaldo(vm),
                         const SizedBox(height: 20),
@@ -63,7 +73,6 @@ class _DashboardViewState extends State<DashboardView> {
                       ],
                     ),
                   ),
-
                   const Positioned(bottom: 20, right: 24, child: TipsBadge()),
                 ],
               ),
@@ -120,9 +129,7 @@ class _DashboardViewState extends State<DashboardView> {
             "Resumo do mês",
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
           ),
-
           const SizedBox(height: 18),
-
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
@@ -132,9 +139,7 @@ class _DashboardViewState extends State<DashboardView> {
               valueColor: AlwaysStoppedAnimation(Colors.green),
             ),
           ),
-
           const SizedBox(height: 14),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -165,7 +170,6 @@ class _DashboardViewState extends State<DashboardView> {
                   ),
                 ],
               ),
-
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -207,11 +211,20 @@ class _DashboardViewState extends State<DashboardView> {
           icon: Icons.add_circle_outline,
           label: "Adicionar\nTransação",
           color: Colors.green,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => TransactionView()),
+            );
+          },
         ),
         _acaoButton(
           icon: Icons.flag_outlined,
           label: "Criar nova\nMeta",
-          color: Color(0xff6A0DAD),
+          color: const Color(0xff6A0DAD),
+          onTap: () {
+            // futura tela de meta
+          },
         ),
       ],
     );
@@ -221,6 +234,7 @@ class _DashboardViewState extends State<DashboardView> {
     required IconData icon,
     required String label,
     required Color color,
+    VoidCallback? onTap,
   }) {
     return Expanded(
       child: Container(
@@ -234,7 +248,7 @@ class _DashboardViewState extends State<DashboardView> {
               borderRadius: BorderRadius.circular(14),
             ),
           ),
-          onPressed: () {},
+          onPressed: onTap,
           child: Column(
             children: [
               Icon(icon, color: color, size: 26),
@@ -251,19 +265,27 @@ class _DashboardViewState extends State<DashboardView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: const [
-            Text(
-              "Histórico recente",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            SizedBox(width: 4),
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 18,
-              color: Color.fromARGB(255, 0, 0, 0),
-            ),
-          ],
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TransactionHistoryView()),
+            );
+          },
+          child: Row(
+            children: const [
+              Text(
+                "Histórico recente",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+              SizedBox(width: 4),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 18,
+                color: Color.fromARGB(255, 0, 0, 0),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 14),
         Column(
@@ -276,7 +298,7 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Widget _buildHistoricoItem(dynamic item) {
-    final categoria = parseCategoria(item["categoria"]);
+    final tipo = parseCategoriaTipo(item["categoria"]?.toString() ?? "");
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -292,8 +314,8 @@ class _DashboardViewState extends State<DashboardView> {
         children: [
           CircleAvatar(
             radius: 22,
-            backgroundColor: categoria.color.withOpacity(0.2),
-            child: Icon(categoria.icon, color: categoria.color),
+            backgroundColor: tipo.color.withOpacity(0.2),
+            child: Icon(tipo.icon, color: tipo.color),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -304,10 +326,7 @@ class _DashboardViewState extends State<DashboardView> {
                   item["titulo"],
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                Text(
-                  categoria.label,
-                  style: const TextStyle(color: Colors.grey),
-                ),
+                Text(tipo.label, style: const TextStyle(color: Colors.grey)),
               ],
             ),
           ),
@@ -315,9 +334,9 @@ class _DashboardViewState extends State<DashboardView> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                "R\$ ${item["valor"].toStringAsFixed(2)}",
+                "R\$ ${(item["valor"] is double) ? (item["valor"] as double).toStringAsFixed(2) : item["valor"].toString()}",
                 style: TextStyle(
-                  color: categoria == Categoria.salario
+                  color: tipo == CategoriaTipo.salario
                       ? Colors.green
                       : Colors.red,
                   fontWeight: FontWeight.w500,

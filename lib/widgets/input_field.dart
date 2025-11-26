@@ -5,6 +5,8 @@ class InputField extends StatelessWidget {
   final TextEditingController controller;
   final bool obscure;
   final bool error;
+  final TextInputType? keyboardType;
+  final Function(String)? onChanged;
 
   const InputField({
     super.key,
@@ -12,6 +14,8 @@ class InputField extends StatelessWidget {
     required this.controller,
     this.obscure = false,
     this.error = false,
+    this.keyboardType,
+    this.onChanged,
   });
 
   @override
@@ -19,6 +23,8 @@ class InputField extends StatelessWidget {
     return TextField(
       controller: controller,
       obscureText: obscure,
+      keyboardType: keyboardType,
+      onChanged: onChanged,
       style: const TextStyle(fontSize: 16),
       decoration: InputDecoration(
         hintText: hint,
@@ -28,7 +34,6 @@ class InputField extends StatelessWidget {
           horizontal: 16,
           vertical: 14,
         ),
-
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
@@ -36,7 +41,6 @@ class InputField extends StatelessWidget {
             width: 2,
           ),
         ),
-
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
