@@ -1,49 +1,30 @@
 # Sources export for GPT
-# generated_at: 2025-11-06T00:14:09
-# roots: ., ./infra, ./docs, ./backend, ./frontend
-# patterns: *.sql, *.yaml, *.yml, *.py, Makefile, .env, , 
-# excluded_dirs: .cache, .git, .hg, .idea, .mypy_cache, .py, .svn, .terraform, .venv, .vscode, __pycache__, bazel-bin, bazel-out, bazel-testlogs, build, dist, node_modules, out, target, vendor, venv
+# generated_at: 2025-11-26T02:00:52
+# roots: ./app, ./infra
+# patterns: *.py, *.yaml, *.yml, *.sql, Makefile, *.txt
+# excluded_dirs: .cache, .git, .hg, .idea, .mypy_cache, .svn, .terraform, .venv, .vscode, __pycache__, bazel-bin, bazel-out, bazel-testlogs, build, dist, env, nao-gerar, node_modules, out, target, vendor, venv
 
 
-===== FILE: .env =====
-# size: 406 bytes
-```
-# Porta local do Postgres
-DB_PORT=5433
-
-# Superuser interno do container (não é o user da sua app)
-DB_SUPERUSER=postgres
-DB_SUPERPASS=postgres
-
-# Credenciais da aplicação
-APP_DB_NAME=planejadin
-APP_DB_USER=planejadin_user
-APP_DB_PASS=planejadin_pass
-
-# Connection string típica (ex.: backend)
-DATABASE_URL=postgresql://${APP_DB_USER}:${APP_DB_PASS}@localhost:${DB_PORT}/${APP_DB_NAME}?sslmode=disable
-
-```
-
-===== FILE: backend/app/__init__.py =====
+===== FILE: app/__init__.py =====
 # size: 0 bytes
 ```python
 
 ```
 
-===== FILE: backend/app/db.py =====
-# size: 633 bytes
+===== FILE: app/db.py =====
+# size: 646 bytes
 ```python
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
-
 from dotenv import load_dotenv
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
+
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+load_dotenv(dotenv_path=os.path.join(BASE_DIR, ".env"))
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://planejadin_user:planejadin_pass@localhost:5433/planejadin?sslmode=disable"
+    "postgresql://postgres:surfamily@localhost:5433/planejadin?sslmode=disable",
 )
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
@@ -61,28 +42,40 @@ def get_db():
 
 ```
 
-===== FILE: backend/app/deps.py =====
+===== FILE: app/deps.py =====
 # size: 0 bytes
 ```python
 
 ```
 
-===== FILE: backend/app/main.py =====
-# size: 295 bytes
+===== FILE: app/main.py =====
+# size: 579 bytes
 ```python
 from fastapi import FastAPI
-from .routers import health, categories, transactions, reports
+from fastapi.middleware.cors import CORSMiddleware
+from .routers import health, categories, transactions, reports, users, dicas
 
 app = FastAPI(title="PlanejaDin API", version="0.1.0")
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],      
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(health.router)
 app.include_router(categories.router)
 app.include_router(transactions.router)
 app.include_router(reports.router)
+app.include_router(users.router)
+app.include_router(dicas.router)
 
 ```
 
-===== FILE: backend/app/models.py =====
+===== FILE: app/models.py =====
 # size: 3057 bytes
 ```python
 import uuid
@@ -146,13 +139,13 @@ class Transaction(Base):
 
 ```
 
-===== FILE: backend/app/routers/__init__.py =====
+===== FILE: app/routers/__init__.py =====
 # size: 0 bytes
 ```python
 
 ```
 
-===== FILE: backend/app/routers/categories.py =====
+===== FILE: app/routers/categories.py =====
 # size: 1284 bytes
 ```python
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -192,7 +185,53 @@ def create_category(
 
 ```
 
-===== FILE: backend/app/routers/health.py =====
+===== FILE: app/routers/dicas.py =====
+# size: 1310 bytes
+```python
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+router = APIRouter(prefix="/dicas", tags=["dicas"])
+
+
+class DicaIn(BaseModel):
+    mensagem: str
+
+
+class DicaOut(BaseModel):
+    resposta: str
+
+
+def _montar_resposta(mensagem: str) -> str:
+    """
+    Gera uma resposta simples a partir da mensagem.
+    Mantém tudo local (sem chamadas externas) para servir de mock.
+    """
+    texto = mensagem.lower()
+
+    if not texto.strip():
+        raise HTTPException(status_code=400, detail="mensagem não pode ser vazia")
+
+    if "meta" in texto or "objetivo" in texto:
+        return "Vou acompanhar suas metas: defina um valor mensal, crie alertas e revise toda semana."
+
+    if "econom" in texto or "poupar" in texto:
+        return "Dica rápida: separe 10% assim que receber, negocie tarifas e revise assinaturas mensais."
+
+    if "dívida" in texto or "divida" in texto or "cartão" in texto:
+        return "Priorize dívidas com juros maiores, pague acima do mínimo e considere portabilidade ou renegociação."
+
+    return "Anotado! Posso sugerir metas, cortes de gastos e melhores datas de vencimento para ajudar."
+
+
+@router.post("", response_model=DicaOut)
+def gerar_dica(payload: DicaIn):
+    resposta = _montar_resposta(payload.mensagem)
+    return DicaOut(resposta=resposta)
+
+```
+
+===== FILE: app/routers/health.py =====
 # size: 134 bytes
 ```python
 from fastapi import APIRouter
@@ -204,7 +243,7 @@ def healthz():
 
 ```
 
-===== FILE: backend/app/routers/reports.py =====
+===== FILE: app/routers/reports.py =====
 # size: 1190 bytes
 ```python
 from fastapi import APIRouter, Depends, Query
@@ -240,8 +279,8 @@ def monthly(
 
 ```
 
-===== FILE: backend/app/routers/transactions.py =====
-# size: 1973 bytes
+===== FILE: app/routers/transactions.py =====
+# size: 2828 bytes
 ```python
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -298,15 +337,93 @@ def create_transaction(
     db.add(tx); db.commit(); db.refresh(tx)
     return tx
 
+@router.get("/{tx_id}", response_model=schemas.TransactionOut)
+def get_transaction(
+    tx_id: UUID,
+    user_id: UUID = Query(...),
+    db: Session = Depends(get_db),
+):
+    tx = db.query(models.Transaction).filter(
+        models.Transaction.id == tx_id,
+        models.Transaction.user_id == user_id,
+    ).first()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return tx
+
+
+@router.delete("/{tx_id}", status_code=204)
+def delete_transaction(
+    tx_id: UUID,
+    user_id: UUID = Query(...),
+    db: Session = Depends(get_db),
+):
+    tx = db.query(models.Transaction).filter(
+        models.Transaction.id == tx_id,
+        models.Transaction.user_id == user_id,
+    ).first()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    db.delete(tx)
+    db.commit()
+
 ```
 
-===== FILE: backend/app/routers/users.py =====
-# size: 0 bytes
+===== FILE: app/routers/users.py =====
+# size: 1524 bytes
 ```python
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from datetime import datetime, timezone
+from pydantic import BaseModel, EmailStr
+from uuid import UUID
+from ..db import get_db
+from .. import models
+
+router = APIRouter(prefix="/users", tags=["users"])
+
+class RegisterIn(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+
+class LoginIn(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserOut(BaseModel):
+    id: UUID
+    name: str
+    email: EmailStr
+    class Config: from_attributes = True
+
+@router.post("/register", response_model=UserOut, status_code=201)
+def register(payload: RegisterIn, db: Session = Depends(get_db)):
+    exists = db.query(models.User).filter(models.User.email == payload.email).first()
+    if exists:
+        raise HTTPException(status_code=409, detail="Email already registered")
+
+    now = datetime.now(timezone.utc)
+    user = models.User(
+        name=payload.name,
+        email=payload.email,
+        password_hash=payload.password,  # depois vcs colocam hash de verdade
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(user); db.commit(); db.refresh(user)
+    return user
+
+@router.post("/login", response_model=UserOut)
+def login(payload: LoginIn, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == payload.email).first()
+    if not user or user.password_hash != payload.password:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return user
 
 ```
 
-===== FILE: backend/app/schemas.py =====
+===== FILE: app/schemas.py =====
 # size: 1313 bytes
 ```python
 from pydantic import BaseModel, EmailStr, Field
@@ -367,35 +484,9 @@ class MonthlyReportOut(BaseModel):
 
 ```
 
-===== FILE: docker-compose.yml =====
-# size: 513 bytes
-```yaml
-services:
-  db:
-    image: postgres:16
-    container_name: planejadin-db
-    environment:
-      POSTGRES_USER: planejadin_user
-      POSTGRES_PASSWORD: planejadin_pass
-      POSTGRES_DB: planejadin
-    ports:
-      - "${DB_PORT:-5432}:5432"
-    volumes:
-      - dbdata:/var/lib/postgresql/data
-      - ./infra/db/init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U planejadin_user -d planejadin"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-volumes:
-  dbdata:
-
-```
-
 ===== FILE: infra/db/init/01_schema.sql =====
 # size: 2568 bytes
-```sql
+```
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 DO $$
@@ -473,27 +564,4 @@ END$$;
 
 ```
 
-===== FILE: Makefile =====
-# size: 244 bytes
-```makefile
-up:
-	docker compose up -d
-
-down:
-	docker compose down
-
-clean:
-	docker compose down -v
-
-logs:
-	docker compose logs -f db
-
-psql:
-	docker exec -it planejadin-db psql -U postgres
-
-# Recriar do zero (atenção: apaga o volume!)
-reset: clean up logs
-
-```
-
-# total_files: 16
+# total_files: 14
